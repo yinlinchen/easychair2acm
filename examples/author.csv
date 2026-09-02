@@ -1,0 +1,6 @@
+submission #,first name,last name,email,country,affiliation,Web page,person #,corresponding?
+1,Alice,Adams,alice@example.edu,United States,Example University,,101,yes
+1,Bob,Barnes,bob@example.edu,United States,Example University,,102,no
+2,Chloé,Dubois,chloe@example.fr,France,Université Exemple,,103,yes
+4,Emma,Ford,emma@example.edu,United Kingdom,Example College,,104,yes
+4,Farid,Gomez,farid@example.mx,Mexico,Instituto Ejemplo,,105,no
