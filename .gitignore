@@ -2,7 +2,7 @@ __pycache__/
 *.pyc
 
 .DS_Store
-
+files/
 # local EasyChair exports and generated ACM files - don't commit real submission data
 /*.csv
 /*.zip

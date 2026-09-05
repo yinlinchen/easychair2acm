@@ -217,6 +217,7 @@ def load_authors(path: Path, paper_ids, forced_encoding):
     c_country = find_column(header, "country", "country/region", required=False, context="authors")
     c_affil = find_column(header, "affiliation", "organization", "organisation", context="authors")
     c_corr = find_column(header, "corresponding", "contact", required=False, context="authors")
+    c_pres = find_column(header, "presenter", "presenting", required=False, context="authors")
 
     authors = {pid: [] for pid in paper_ids}
     for row in rows:
@@ -234,6 +235,7 @@ def load_authors(path: Path, paper_ids, forced_encoding):
             "institution": cell(row, c_affil),
             "contact_author": (CONTACT_AUTHOR_YES if cell(row, c_corr).lower() in CONTACT_TRUE
                                else CONTACT_AUTHOR_NO),
+            "is_presenter": cell(row, c_pres).lower() in CONTACT_TRUE,
         })
 
     empty = sorted((pid for pid, a in authors.items() if not a), key=intkey)
@@ -241,6 +243,28 @@ def load_authors(path: Path, paper_ids, forced_encoding):
         die("no author rows for accepted paper(s): " + ", ".join(empty)
             + "\n  (is this the authors export that matches these submissions?)")
     return authors
+
+
+def enforce_single_contact(authors):
+    """Reduce each paper to exactly one contact_author (ACM's hard rule).
+
+    Preference order: an author already marked corresponding who is also the
+    presenter, else the first author marked corresponding, else the presenter,
+    else the first author. Prints the choice for every paper it changes.
+    """
+    for pid in sorted(authors, key=intkey):
+        people = authors[pid]
+        marked = [p for p in people if p["contact_author"] == CONTACT_AUTHOR_YES]
+        if len(marked) == 1:
+            continue
+        presenters = [p for p in people if p["is_presenter"]]
+        marked_presenters = [p for p in marked if p["is_presenter"]]
+        choice = (marked_presenters or marked or presenters or people)[0]
+        for p in people:
+            p["contact_author"] = CONTACT_AUTHOR_YES if p is choice else CONTACT_AUTHOR_NO
+        name = (f"{choice['first_name']} {choice['last_name']}").strip() or "?"
+        basis = "also presenter" if choice["is_presenter"] else "no presenter flag - first author"
+        print(f"  paper {pid}: {len(marked)} marked -> contact_author = {name} ({basis})")
 
 
 def check_authors(pid, people):
@@ -338,6 +362,10 @@ def build_parser():
                         "as decimal HTML entities (ACM-recommended for diacritics)")
     p.add_argument("--encoding", metavar="NAME",
                    help="force a specific input encoding instead of auto-detecting")
+    p.add_argument("--single-contact", action="store_true",
+                   help="force exactly one contact_author per paper when EasyChair "
+                        "marked several (or none): keeps the presenter, else the first "
+                        "author; prints each choice")
     p.add_argument("--header", action="store_true",
                    help="write a header row (default: no header row - ACM wants none)")
     p.add_argument("--list-decisions", action="store_true",
@@ -386,6 +414,10 @@ def main(argv=None):
     print("reading authors...")
     authors = load_authors(args.authors_csv, set(papers), args.encoding)
     print(f"  {sum(len(v) for v in authors.values())} author row(s)")
+
+    if args.single_contact:
+        print("normalizing to one contact author per paper...")
+        enforce_single_contact(authors)
 
     opts = {
         "header": args.header,
