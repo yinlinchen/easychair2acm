@@ -29,7 +29,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 # ACM enhanced CSV: 35 fields, in this exact order (docs/papertypes-csvfields-current.pdf).
 # Blank is fine for optional fields, but the field must still be present - "do
@@ -82,8 +82,11 @@ VALID_PAPER_TYPES = [
     "tutorial", "work-in-progress",
 ]
 
-# Encodings tried, in order, when reading an input file.
-ENCODINGS_TO_TRY = ("utf-8-sig", "utf-8", "cp1252", "mac_roman", "latin-1")
+# EasyChair exports UTF-8. That is the only thing we auto-try. Encodings like
+# cp1252 / latin-1 decode almost any byte, so a spreadsheet-mangled file would
+# slip through as mojibake instead of failing - if you really have such a file,
+# pass --encoding explicitly and know what you are doing.
+ENCODINGS_TO_TRY = ("utf-8-sig", "utf-8")
 
 # Values in EasyChair's "corresponding?" column that mark a contact author.
 CONTACT_TRUE = {"yes", "y", "true", "1"}
@@ -132,8 +135,10 @@ def read_csv_rows(path: Path, forced_encoding=None):
             die(f"{path} is empty")
         print(f"  read {path.name} as {enc}  ({len(rows) - 1} data rows)")
         return [h.strip() for h in rows[0]], rows[1:]
-    die(f"could not decode {path} with {list(encodings)}: {last_err}\n"
-        f"  try --encoding <name>")
+    die(f"could not decode {path} as {' / '.join(encodings)}: {last_err}\n"
+        f"  the export is damaged - re-download Submissions+Authors from EasyChair\n"
+        f"  and do not open it in a spreadsheet and re-save.\n"
+        f"  (force a specific encoding with --encoding <name> if you know it)")
 
 
 def find_column(header, *aliases, required=True, context=""):
@@ -338,7 +343,12 @@ def build_parser():
             "  # when the decision text encodes the paper type\n"
             "  easychair2acm submission.csv author.csv short.csv \\\n"
             '      --proceeding-id 12345 --paper-type \"short paper\" \\\n'
-            '      --decision-value \"accept as short\"\n'
+            '      --decision-value \"accept as short\"\n\n'
+            "  # type is elsewhere (e.g. the 'form fields' column): pass the ids,\n"
+            "  # and collapse multiple EasyChair 'corresponding?' authors to one\n"
+            "  easychair2acm submission.csv author.csv demo.csv \\\n"
+            '      --proceeding-id 12345 --paper-type \"demonstration\" \\\n'
+            "      --id 15,23,88 --single-contact\n"
         ),
     )
     p.add_argument("submissions_csv", type=Path, help="EasyChair submission table export")

@@ -17,8 +17,9 @@ Maintained rewrite of
 | column positions hard-coded | columns located by header name |
 | accepted paper ids typed by hand | detected from the `decision` column |
 | Proceeding ID edited in the source | `--proceeding-id` option |
-| input encoding hard-coded | auto-detected (`--encoding` to override) |
+| input encoding hard-coded | expects UTF-8 (EasyChair's export); `--encoding` to override |
 | `assert` tracebacks | plain errors + pre-upload warnings |
+| multiple `corresponding?` authors upload as-is | `--single-contact` forces one (the presenter) |
 | 31 output fields, `TRUE`/`FALSE` contact flag | current 35-field format, `yes`/`no`, `source` filled, paper-type validated |
 
 **Requirements:** Python 3.8+. No third-party packages.
@@ -59,8 +60,11 @@ On EasyChair's **CSV data export** page (under the **Premium** menu):
 - **"Include table headers"** must be checked (columns are matched by name)
 - **Download Tables** → unzip → `submission.csv` and `author.csv`
 
-Don't open the CSVs in a spreadsheet and re-save — it can corrupt accented
-names. The tool reads them fine as-is.
+Feed these files to the tool **exactly as exported**. Don't open them in a
+spreadsheet and re-save — Excel/Numbers mangle the encoding (accented names,
+dashes and quotes turn to `â€?`), and the tool will refuse a file it can't
+decode cleanly rather than guess. The tool reads the raw export fine; if you
+need to inspect it, use a plain-text editor.
 
 ## 2. Check how acceptances are recorded
 
@@ -80,9 +84,18 @@ Note which decision text means "accepted" for each paper type.
 
 ## 3. Generate the enhanced CSV
 
-**One run per paper type.** `--paper-type` must be an exact ACM value (see the
-list at the bottom, or `easychair2acm -h`). `--proceeding-id` comes from your
-ACM proceedings instruction email.
+**One run per paper type.** `--paper-type` is a single ACM value (see the list at
+the bottom, or `easychair2acm -h`) stamped on **every** row of that run — so you
+do one run per type and concatenate the outputs (step 4). `--proceeding-id`
+comes from your ACM proceedings instruction email and is the same for every run
+that feeds one proceedings volume.
+
+You never edit the EasyChair CSVs. Which papers go into each run is selected one
+of three ways, depending on where EasyChair recorded the paper type:
+
+### A. The `decision` column names the type
+
+The common case — different acceptance texts per type, as seen in step 2:
 
 ```bash
 python easychair2acm.py submission.csv author.csv full.csv \
@@ -90,24 +103,49 @@ python easychair2acm.py submission.csv author.csv full.csv \
 
 python easychair2acm.py submission.csv author.csv short.csv \
     --proceeding-id 12345 --paper-type "short paper" --decision-value "accept as short"
+
+python easychair2acm.py submission.csv author.csv poster.csv \
+    --proceeding-id 12345 --paper-type "poster" --decision-value "transfer to the poster track"
 ```
 
-Split by explicit id list instead, when the decision text can't distinguish:
+`--decision-value` is repeatable when several texts mean the same thing.
+
+### B. The type is only in the submission form
+
+When one `decision` covers several paper types, the type is usually the
+submission's answer to a form question, which EasyChair puts in the `form fields`
+column (as `(Question) N`, where `N` is the chosen option's *number*, not its
+label — check the CfP for what each number means). Some tracks also export a
+plain `Type` column.
+
+The tool filters on `decision` only, so list the submission numbers for each
+type and pass them with `--id`:
 
 ```bash
-python easychair2acm.py submission.csv author.csv poster.csv \
-    --proceeding-id 12345 --paper-type "poster" --id 15,23,88,104
+python easychair2acm.py submission.csv author.csv demo.csv \
+    --proceeding-id 12345 --paper-type "demonstration" --id 15,23,88,104
 ```
+
+Read those numbers straight off the `form fields` / `Type` column in a text
+editor. A submission that left the question blank is in no `--id` list and is
+**silently skipped** — decide where it belongs and add it.
+
+### C. Nothing distinguishes them
+
+Decide per paper and keep the `--id` lists yourself.
+
+---
 
 Useful options:
 
 | option | effect |
 | --- | --- |
+| `--single-contact` | when EasyChair has several authors (or none) marked `corresponding?`, force exactly one contact author per paper: the presenter, else the first author. Prints each pick. See step 4 |
 | `--source NAME` | value for the mandatory `source` field (default `EasyChair`) |
 | `--include-abstract` | fill the optional abstract field from the submission export |
 | `--html-entities` | encode non-ASCII in names/title/affiliation as `&#nnn;` — ACM's recommended handling for diacritics (e.g. `Chloé` → `Chlo&#233;`) |
 | `--id N` | restrict to these submission numbers (repeatable / comma-separated) |
-| `--encoding NAME` | force an input encoding |
+| `--encoding NAME` | force an input encoding (the export is UTF-8; only needed for an unusual or older file) |
 | `--header` | write a header row (leave off for the file you upload) |
 
 ## 4. Combine and check
@@ -121,7 +159,16 @@ cut -d, -f2 acm-all.csv | sort -u | wc -l
 
 The tool prints the accepted count per run and **warnings** for things ACM will
 reject or flag — missing affiliation/country, papers with no or multiple contact
-authors, duplicate author emails. Fix those in EasyChair and re-run.
+authors, duplicate author emails.
+
+**Multiple contact authors** is the usual one: EasyChair lets every co-author
+tick `corresponding?` and doesn't stop them, but ACM allows exactly one. Rather
+than chasing it in EasyChair, re-run with `--single-contact` — it keeps the
+author who is the registered presenter (falling back to the first author) and
+prints the choice it made for each paper. Check that list; if a paper needs a
+different contact, set that person's `corresponding?`/`presenter?` in the author
+export and re-run. Other warnings — missing affiliation/country, duplicate
+emails — fix in EasyChair and re-run.
 
 ## 5. Upload to ACM e-Rights, then send notifications
 
@@ -198,7 +245,8 @@ this list.
 | `no accepted papers found` | wrong `--decision-value`; run `--list-decisions` |
 | `these --id values are not accepted papers` | that submission was rejected/withdrawn, or a typo |
 | `no author rows for accepted paper(s): N` | the author export doesn't match the submission export |
-| `could not decode ...` | pass `--encoding` (e.g. `--encoding cp1252`) |
+| `N contact authors marked (ACM allows one)` | several co-authors ticked `corresponding?`; re-run with `--single-contact` |
+| `could not decode ... the export is damaged` | a spreadsheet round-trip (or a partial download) mangled the bytes. Re-export Submissions+Authors from EasyChair and don't open them in Excel/Numbers. `--encoding` forces one if you genuinely know it |
 | `ORA-12899: value too large for ... PRIMARY_AUTHOR` | old versions wrote `TRUE`/`FALSE`; this version writes `yes`/`no` |
 | accents wrong after ACM import | regenerate with `--html-entities` |
 
