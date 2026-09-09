@@ -8,34 +8,17 @@ Input: the **submission** and **author** tables exported from EasyChair.
 Output: one row per author per accepted paper, **35 fields**, headerless, in the
 order ACM's e-Rights loader expects.
 
-Maintained rewrite of
-[annaritz/easychair-to-acm-erights](https://github.com/annaritz/easychair-to-acm-erights)
-(originally by Di Wu and Anna Ritz):
-
-| original | easychair2acm |
-| --- | --- |
-| column positions hard-coded | columns located by header name |
-| accepted paper ids typed by hand | detected from the `decision` column |
-| Proceeding ID edited in the source | `--proceeding-id` option |
-| input encoding hard-coded | expects UTF-8 (EasyChair's export); `--encoding` to override |
-| `assert` tracebacks | plain errors + pre-upload warnings |
-| multiple `corresponding?` authors upload as-is | `--single-contact` forces one (the presenter) |
-| 31 output fields, `TRUE`/`FALSE` contact flag | current 35-field format, `yes`/`no`, `source` filled, paper-type validated |
+- columns located by header name, not fixed positions
+- accepted papers detected from the `decision` column
+- Proceeding ID, paper type, and filters are command-line options
+- input expected as UTF-8 (EasyChair's export); `--encoding` to override
+- plain error messages and pre-upload warnings
+- `--single-contact` collapses multiple EasyChair `corresponding?` authors to the
+  one ACM allows
+- current 35-field e-Rights format: `yes`/`no` flags, `source` filled,
+  `paper_type` validated
 
 **Requirements:** Python 3.8+. No third-party packages.
-
-## Reference documents
-
-Both are in [`docs/`](docs/) and are the authority for the output format:
-
-- **`papertypes-csvfields-current.pdf`** — ACM's "Paper Types for ACM Sponsored
-  and ICPS Conference Proceedings" + "The CSV File – A Definition of Terms".
-  Lists the valid `paper_type` values and defines all 35 fields. This tool's
-  output follows the 2025-11-12 revision.
-- **`TAPS instructions for Organizers-Vendors.pdf`** — the *next* stage. After
-  e-Rights, camera-ready PDFs/sources are processed through TAPS. Not used by
-  this tool; kept here as the proceedings chair's reference.
-- **`easychair-csv-export.png`** — the EasyChair export screen.
 
 ---
 
@@ -52,7 +35,12 @@ Otherwise call it as `python easychair2acm.py ...`.
 
 ## 1. Export from EasyChair
 
-On EasyChair's **CSV data export** page (under the **Premium** menu):
+On EasyChair's **Track Data Download** page, under **CSV data** follow
+**click here** to choose a subset of tables:
+
+![EasyChair Track Data Download](docs/csvdownload.png)
+
+then on the table-selection screen:
 
 ![EasyChair CSV Data Export Tables](docs/easychair-csv-export.png)
 
@@ -250,7 +238,22 @@ this list.
 | `ORA-12899: value too large for ... PRIMARY_AUTHOR` | old versions wrote `TRUE`/`FALSE`; this version writes `yes`/`no` |
 | accents wrong after ACM import | regenerate with `--html-entities` |
 
+## Reference documents
+
+In [`docs/`](docs/), the authority for the output format:
+
+- **`papertypes-csvfields-current.pdf`** — ACM's "Paper Types for ACM Sponsored
+  and ICPS Conference Proceedings" + "The CSV File – A Definition of Terms".
+  Lists the valid `paper_type` values and defines all 35 fields. This tool's
+  output follows the 2025-11-12 revision.
+- **`TAPS instructions for Organizers-Vendors.pdf`** — the *next* stage. After
+  e-Rights, camera-ready PDFs/sources are processed through TAPS. Not used by
+  this tool; kept here as the proceedings chair's reference.
+- **`csvdownload.png`**, **`easychair-csv-export.png`** — the two EasyChair
+  export screens (step 1).
+
 ## Credits
 
-Rewritten from `annaritz/easychair-to-acm-erights` by Di Wu (Texas A&M) and
-Anna Ritz (Reed College).
+Rewritten from
+[annaritz/easychair-to-acm-erights](https://github.com/annaritz/easychair-to-acm-erights),
+originally by Di Wu (Texas A&M) and Anna Ritz (Reed College).
