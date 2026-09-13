@@ -237,6 +237,7 @@ this list.
 | `could not decode ... the export is damaged` | a spreadsheet round-trip (or a partial download) mangled the bytes. Re-export Submissions+Authors from EasyChair and don't open them in Excel/Numbers. `--encoding` forces one if you genuinely know it |
 | `ORA-12899: value too large for ... PRIMARY_AUTHOR` | old versions wrote `TRUE`/`FALSE`; this version writes `yes`/`no` |
 | accents wrong after ACM import | regenerate with `--html-entities` |
+| ACM says the "Author field has badly encrypted characters (displayed as ?s)" | seen when an author's affiliation (or title) has EasyChair's mid-field line-wrap newline in it — 1.3.0+ collapses those automatically; on an older version, regenerate with the current script |
 
 ## Reference documents
 
@@ -257,3 +258,8 @@ In [`docs/`](docs/), the authority for the output format:
 Rewritten from
 [annaritz/easychair-to-acm-erights](https://github.com/annaritz/easychair-to-acm-erights),
 originally by Di Wu (Texas A&M) and Anna Ritz (Reed College).
+
+## License
+
+[GPL-3.0-or-later](LICENSE) — same license as the project this was rewritten
+from, since it's a derivative work.

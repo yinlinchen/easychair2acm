@@ -18,18 +18,34 @@ Proceedings" / "The CSV File - A Definition of Terms"
 No third-party dependencies. Python 3.8+.
 
 Derived from https://github.com/annaritz/easychair-to-acm-erights
-(originally by Di Wu and Anna Ritz).
+(originally by Di Wu and Anna Ritz), licensed GPL-3.0-or-later.
+
+Copyright (C) Di Wu, Anna Ritz, and Yinlin Chen.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import re
 import sys
 from collections import Counter
 from pathlib import Path
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 # ACM enhanced CSV: 35 fields, in this exact order (docs/papertypes-csvfields-current.pdf).
 # Blank is fine for optional fields, but the field must still be present - "do
@@ -157,7 +173,18 @@ def find_column(header, *aliases, required=True, context=""):
 
 
 def cell(row, idx):
-    return row[idx].strip() if (idx is not None and idx < len(row)) else ""
+    """Return a cleaned-up cell value.
+
+    EasyChair wraps long text (titles, affiliations) with a literal newline
+    mid-field. Left in, that embedded line break can corrupt an ACM e-Rights
+    upload (seen in practice: an author's affiliation with a wrapped newline
+    made the whole row's Author field come back as garbled '?' characters).
+    Collapse any run of whitespace containing a newline/carriage return to a
+    single space; a normal single space between words is left untouched.
+    """
+    if idx is None or idx >= len(row):
+        return ""
+    return re.sub(r"\s*[\r\n]+\s*", " ", row[idx]).strip()
 
 
 def is_accepted(decision, explicit_values):

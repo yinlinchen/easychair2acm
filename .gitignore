@@ -6,4 +6,5 @@ files/
 # local EasyChair exports and generated ACM files - don't commit real submission data
 /*.csv
 /*.zip
+/*.xlsx
 !examples/*.csv
